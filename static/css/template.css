@@ -1,0 +1,20 @@
+/* 整體*/
+body {
+    margin: auto;
+    /* max-width: 1000px; */
+    font-family: Helvetica, Arial, sans-serif;
+}
+
+/* 頁腳*/
+footer {
+    color: #888;
+    margin-top: 15px;
+    text-align: center;
+    padding: 10px;
+}
+
+h1, h2, h3 { 
+    font-family: serif; 
+    color: #377ba8;  
+    text-align: center;
+}
