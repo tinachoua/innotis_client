@@ -124,18 +124,20 @@
             </div>
             {% endfor %}
             {% elif mode=='video' %}
-            {% block out_pth %}
             <div class="width60 card-container">
                 <div class="card-item">
                     <video width="320" height="240" controls autoplay class="card-img">
+                        {% block out_pth%}
                         <source src="{{ url_for('static', filename=out_pth) }}" type="video/mp4" />
+                        {% endblock %}
                     </video>
                     <div class="card-item">
-                        <textarea class="card-info" rows="3">Video Mode</textarea>
+                        {% block info%}
+                        <textarea class="card-info" rows="3">{{info}}</textarea>
+                        {% endblock %}
                     </div>
                 </div>
             </div>    
-            {% endblock %}
             {% else %}
             <div class="width60 card-container" >
                 <!-- 圖片 -->

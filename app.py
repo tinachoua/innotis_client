@@ -1,7 +1,9 @@
+# -*- coding: UTF-8 -*-
 from flask import Flask, config, request, redirect, url_for, render_template, Response
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
-from flask_triton_client import Client, print_title
+from innotis_client import Client
+from tis_tools.log import print_title
 
 import cv2
 import os
@@ -251,9 +253,11 @@ def upload_file():
         out_pth = os.path.join(app.config['UPLOAD_FOLDER'], out_name)
 
         # 進行推論取得結果
-        client.video_infer(save_pth, model['width'], model['height'], out_pth)
+        ret, info = client.video_infer(save_pth, model['width'], model['height'], out_pth)
 
-        return render_template('result.html', mode=mode, out_pth=out_name) 
+        
+
+        return render_template('result.html', mode=mode, out_pth=out_name, info=info) 
     
     elif mode=='stream':
         '''
