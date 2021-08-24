@@ -1,5 +1,5 @@
 {
-    0: 'mask'
-    1: 'bad'
+    0: 'mask',
+    1: 'bad',
     2: 'abnormal'
 }

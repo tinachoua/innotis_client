@@ -1,1 +1,1 @@
-docker run -p 5000:5000 -t innotis
+docker run -p 5000:5000 -t maxchanginnodisk/innotis
