@@ -1,1 +1,1 @@
-docker build -t innotis .
+docker build -t maxchanginnodisk/innotis .

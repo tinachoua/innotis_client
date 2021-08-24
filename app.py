@@ -27,6 +27,11 @@ app = Flask(__name__)
 
 # 上傳到的資料夾 ( Server端 ) 
 UPLOAD_FOLDER = './static'
+
+if not os.path.exists(UPLOAD_FOLDER):
+    print_title(f'Create Directory :　[{UPLOAD_FOLDER}]')
+    os.mkdir(UPLOAD_FOLDER)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # 設定 副檔名 規範

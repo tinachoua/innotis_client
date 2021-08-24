@@ -9,7 +9,7 @@ RUN git clone https://github.com/MaxChangInnodisk/InnoTIS.git
 WORKDIR "/InnoTIS"
 
 # Create the conda environment:
-RUN conda env create -f environment.yml
+RUN conda env create -f docker/environment.yml
 
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "-n", "innotis", "/bin/bash", "-c"]
