@@ -3,6 +3,10 @@ FROM continuumio/miniconda3
 RUN apt update
 RUN apt install libgl1-mesa-glx -y
 RUN apt install git -y
+RUN apt install ffmpeg x264 libx264-dev -y
+
+# Check ffmpeg
+RUN ffmpeg -formats | grep h264
 
 # Prepare InnoTIS 
 RUN git clone https://github.com/MaxChangInnodisk/InnoTIS.git
