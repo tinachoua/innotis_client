@@ -1,9 +1,9 @@
 FROM continuumio/miniconda3
 
-RUN apt update
-RUN apt install libgl1-mesa-glx -y
-RUN apt install git -y
-RUN apt install ffmpeg x264 libx264-dev -y
+RUN apt-get update
+RUN apt-get install libgl1-mesa-glx -y
+RUN apt-get install git -y
+RUN apt-get install ffmpeg x264 libx264-dev -y
 
 # Check ffmpeg
 RUN ffmpeg -formats | grep h264
