@@ -5,8 +5,10 @@ InnoTIS 是 Innodisk and Aetina 用來提供 Aetina Server 運行AI模型的效�
 **Make sure Docker is installed in client device...**
 
 1. 下載並執行 docker
+
 -t : allocate a pseude-TTY
 -p : public container's port 5000 to host's port 5000
+
 ```
 docker run -t -p 5000:5000 -t maxchanginnodisk/innotis
 ```
