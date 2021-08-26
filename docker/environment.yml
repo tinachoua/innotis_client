@@ -52,10 +52,7 @@ dependencies:
     - opencv-python==4.5.2.52
     - protobuf==3.17.1
     - python-rapidjson==1.0
-    # - six==1.16.0
     - https://developer.download.nvidia.com/compute/redist/tritonclient/tritonclient-2.8.0-py3-none-manylinux1_x86_64.whl
-    # - nvidia-pyindex
     # - tritonclient
     - zope-event==4.5.0
     - zope-interface==5.4.0
-# prefix: /home/nvidia/anaconda3/envs/yolov4-triton
