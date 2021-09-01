@@ -134,7 +134,9 @@ def cv2base64(img):
 def stream_infer():
 
     client = app.config['CLIENT']
-    
+    cap = app.config['CAP']
+    model = app.config['MODEL']
+
     while(app.config['STREAM']):
 
         ret, frame = cap.read()
@@ -270,7 +272,7 @@ def upload_file():
         '''
         Stream 每一幀讀取完就直接回傳
         '''
-        global cap, isStream
+        
         print_title("VIDEO MODE")
 
         # 如果非本地端則傳送過去儲存下來
@@ -280,9 +282,9 @@ def upload_file():
         file.save(save_pth)
 
         # Start Stream
-        cap = cv2.VideoCapture(str(save_pth))
+        app.config['CAP'] = cv2.VideoCapture(str(save_pth))
         # 允許串流
-        isStream  = True
+        app.config['STREAM']  = True
         
         return render_template('result.html', mode=mode)
             
