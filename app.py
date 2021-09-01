@@ -41,25 +41,28 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'mp4'])
 # max_nums = 16
 # app.config['MAX_CONTENT_LENGTH'] = max_nums * 1024 * 1024  # 16MB
 
-client = []
-model = None
-mode = 'image'
-isYolo = 0
-seed=1
-isStream = False
-cap = []
-out_pth = ''
-info = ''
+app.config.update(
+    CLIENT = [],
+    MODEL = None,
+    MODE = 'image',
+    YOLO = False,
+    SEED = 1,
+    STREAM = False,
+    CAP = [],
+    OUT_PATH = '',
+)
+
 
 # 模型資訊
-model_list = {  
+app.config['M_LIST'] = {  
     'default':{ 'name':'default', 'width':'e.g. 224, 416', 'height':'e.g. 224, 416', 'dataset':'The trainning dataset ( e.g. ImageNet, COCO, Custom )'},
     'densenet_onnx':{ 'name':'densenet_onnx', 'width':224, 'height':224, 'dataset':'imagenet'},
     'yolov4':{ 'name':'yolov4', 'width':608, 'height':608, 'dataset':'coco'},        
     'yolov4_will':{ 'name':'yolov4_will', 'width':608, 'height':608, 'dataset':'will'}
-}
+    }
+
 # 其他的 client 設定
-client_setup = {
+app.config['CLIENT_SETUP'] = {
     'conf':0.9,
     'nms':0.1,
     'info':False,
@@ -82,9 +85,8 @@ def get_info(model):
 '''隨機產生UUID'''
 def gen_uuid(img_path):
 
-    global seed
-    seed += 1  # 改變種子以取得不同隨機數值
-    random.seed(seed)
+    app.config['SEED'] += 1
+    random.seed( app.config['SEED'] )
     
     name, ext = img_path.rsplit('.', 1)
     fakeid='?uuid='
@@ -101,7 +103,7 @@ def clear_images(dir):
 '''解析辨識結果'''
 def parse_results(res):
     
-    if isYolo:
+    if app.config['YOLO']:
         index=0
         det_nums = 0 if res[0][0] is 'None' else len(res)   # 如果第一筆資料是 None 代表沒有辨識到結果
 
@@ -131,9 +133,9 @@ def cv2base64(img):
 ''' Stream Mode '''
 def stream_infer():
 
-    global isStream,info
+    client = app.config['CLIENT']
     
-    while(isStream):
+    while(app.config['STREAM']):
 
         ret, frame = cap.read()
 
@@ -152,7 +154,7 @@ def stream_infer():
                 jpg.tobytes() + 
                 b'\r\n')    
 
-    isStream = False
+    app.config['STREAM'] = False
 
 ############################################################################################
 
@@ -160,14 +162,13 @@ def stream_infer():
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # global models_info, UPLOAD_FOLDER
-    global isStream
-    isStream = False
+    app.config['STREAM'] = False
 
     print_title('Clear Temp Dir ... ')
     clear_images(UPLOAD_FOLDER)
     
     # 使用 render_template 會自動去 templates 抓取 index.html
-    return render_template('index.html', models=model_list.items())
+    return render_template('index.html', models=app.config['M_LIST'].items())
 
 '''不斷餵新的畫面'''
 @app.route("/_feedFrame") 
@@ -177,38 +178,41 @@ def feed_frame():
 '''取得選擇的模型'''
 @app.route('/_sel', methods=['GET', 'POST'])
 def get_sel():
-    global model, model_list, isYolo
-    model = model_list[request.get_json()]
-    isYolo = 'yolo' in model['name']
-    print_title('Selected Model ... {}'.format(model['name']))
+    # global model, model_list, isYolo
+
+    app.config['MODEL'] = app.config['M_LIST'][request.get_json()]
+    
+    # model_name = app.config['MODEL']['name']
+    app.config['YOLO'] = 'yolo' in app.config['MODEL']['name']
+    print_title('Selected Model ... {}'.format(app.config['MODEL']['name']))
+    
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 '''取得選擇到的模式'''
 @app.route('/_mode', methods=['GET', 'POST'])
 def get_mode():
-    global mode
-    mode = request.get_json()
-    print_title('Selected Mode ... {}'.format(mode))
+    app.config['MODE'] = request.get_json()
+    print_title('Selected Mode ... {}'.format(app.config['MODE']))
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 '''註冊 upload 位置'''
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
     
-    global client, model, img, out_pth, info
-
     # 如果有 POST 就會產生資料列表
     # if request.method == 'POST':
 
     # 取得 IP 後建立 Client 端物件
-    url = request.form.get('ip')
-    client = Client(    url=url,
-                        model_name=model['name'], 
-                        label_name=model['dataset'],
-                        conf=client_setup['conf'] ,
-                        nms=client_setup['nms'] ,
-                        get_info=client_setup['info'] ,
-                        client_timeout=client_setup['timeout']  )
+    model = app.config['MODEL']
+    mode = app.config['MODE']
+    client_setup = app.config['CLIENT_SETUP']
+    client = app.config['CLIENT'] = Client(  url=request.form.get('ip'),
+                                    model_name=model['name'], 
+                                    label_name=model['dataset'],
+                                    conf=client_setup['conf'] ,
+                                    nms=client_setup['nms'] ,
+                                    get_info=client_setup['info'] ,
+                                    client_timeout=client_setup['timeout']  )
 
     # 取得上傳的檔案
     uploaded_files = request.files.getlist("file[]")
@@ -237,7 +241,7 @@ def upload_file():
             info = parse_results(results)
 
             # 將資料記錄下來        
-            data.append(  (out_name if isYolo else filename, info, cv2base64(image_draw)) )
+            data.append(  (out_name if app.config['YOLO'] else filename, info, cv2base64(image_draw)) )
 
         # 更新到 result 頁面
         return render_template('result.html', mode=mode, data=data, wid=len(data))
@@ -259,8 +263,6 @@ def upload_file():
 
         # 進行推論取得結果
         ret, info = client.video_infer(save_pth, model['width'], model['height'], out_pth)
-
-        
 
         return render_template('result.html', mode=mode, out_pth=out_name, info=info) 
     
@@ -291,4 +293,4 @@ def upload_file():
 ############################################################################################
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port='5000')
+    app.run(host='0.0.0.0', port='5000', threaded=True)
