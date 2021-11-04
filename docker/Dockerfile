@@ -9,8 +9,8 @@ RUN apt-get install ffmpeg x264 libx264-dev -y
 RUN ffmpeg -formats | grep h264
 
 # Prepare InnoTIS 
-RUN git clone https://github.com/MaxChangInnodisk/InnoTIS.git
-WORKDIR "/InnoTIS"
+RUN git clone https://github.com/MaxChangInnodisk/innotis-client.git
+WORKDIR "/innotis-client"
 
 # Create the conda environment:
 RUN conda env create -f docker/environment.yml
