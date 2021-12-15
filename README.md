@@ -10,7 +10,7 @@ InnoTIS 是 Innodisk and Aetina 用來提供 Aetina Server 運行AI模型的效�
    1. Pull from Docker hub
        ```bash
        # It will pull from hub automatically if you don't have the docker image
-       docker run -t -p 5000:5000 -t maxchanginnodisk/innotis
+       docker run --rm -p 5000:5000 -t maxchanginnodisk/innotis
        ```
       | ARG | DESCRIPTION |
       | --- | --- |
