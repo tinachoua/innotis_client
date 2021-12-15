@@ -52,7 +52,7 @@ InnoTIS 是 Innodisk and Aetina 用來提供 Aetina Server 運行AI模型的效�
 4. Run sample code.
    ```bash
    # just run this script
-   $ ./docker/run_with_conda.sh
+   $ source ./docker/run_with_conda.sh
    ```
 5. Open browser and enter `localhost:5000`
     * Triton IP must be modify to <server_ip>, you can find <server_ip> in "server_ip.txt" which will be generated when run `init.sh`

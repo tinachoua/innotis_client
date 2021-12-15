@@ -3,6 +3,9 @@
     h1, .title {
         color: royalblue;
     }
+    h3 {
+        color: #a8a8a8
+    }
     form{
         width:100%;
     }
@@ -162,7 +165,7 @@
                     <hr>
                     <!-- 選擇模型 -->
                     <div class="container flex-raw">
-                        <div class="item-left">選擇模型</div>
+                        <div class="item-left">AI Model</div>
                         <div class='item-right'>
                             <select name="myselect" class="custom-select" id="sel">  
                                 {% for model, info in models %}
@@ -178,7 +181,7 @@
 
                     <!-- 設定IP -->
                     <div class="container flex_raw">
-                        <div class='item-left'>Triton IP</div>
+                        <div class='item-left'>Server IP</div>
                         <div class="item-right">
                             <textarea name="ip" class="ip-box" contenteditable="true"><Aetina_Server_IP>:8001</textarea>
                         </div>
@@ -186,7 +189,7 @@
 
                     <!-- 設定模式 -->
                     <div class="container flex_raw">
-                        <div class='item-left'>選擇模式</div>
+                        <div class='item-left'>Infer Mode</div>
                         <div class="item-right">
                             <select id="mode-sel" class="custom-select" > 
                                 <option selected disabled>Select Mode</option>
@@ -199,7 +202,7 @@
 
                     <!-- 選擇檔案 -->
                     <div class="container   ">
-                        <div class='item-left'>選擇檔案</div>
+                        <div class='item-left'>Select File</div>
                         <div class="item-right">
                             <input id="upload_img" type="file" multiple="" name="file[]">
                         </div>
