@@ -3,6 +3,30 @@ from tis_tools.boundingbox import BoundingBox
 import cv2
 import numpy as np
 
+""" average pixel """
+def subtract_avg(img):
+    
+    trg_img = img
+    for i in range(3):
+        avg=np.average(trg_img[:,:,i])
+        trg_img[:,:,i]-=avg
+    return trg_img
+
+""" caffe mode of image processing """
+def caffe_mode(img, input_shape):
+    
+    # 1. fix to target format
+    # 2. reshape to (3,224,224)
+    # 3. average pixel values
+    # 4. convert to CHW
+    # 5. reshape to ( -1, N ) via numpy.reval()
+    wid, hei = input_shape
+    img_resize = cv2.resize(img, (input_shape[1], input_shape[0])).astype(np.float32)
+    img_avg = subtract_avg(img_resize)
+    img_chw = img_avg.transpose( (2, 0, 1) ).astype(np.float32)    
+
+    return img_chw 
+
 def preprocess(img, input_shape, letter_box=False):
     """Preprocess an image before TRT YOLO inferencing.
     # Args

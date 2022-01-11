@@ -13,10 +13,11 @@ import shlex
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import InferenceServerException
 
-from tis_tools.processing import preprocess, postprocess
+from tis_tools.processing import preprocess, postprocess, caffe_mode
 from tis_tools.render import render_box, render_filled_box, get_text_size, render_text, RAND_COLORS
 from tis_tools.labels import get_label, COCOLabels, WillLabels
 from tis_tools.log import print_title
+
 
 # 為了讀取原生地檔案
 import grpc
@@ -41,6 +42,7 @@ class Client:
         self.get_info = get_info
         self.client_timeout = client_timeout
 
+        self.tensorrt = False
         self.yolo = 'yolo' in model_name
         ##############################################
         # Create Triton Client
@@ -73,7 +75,7 @@ class Client:
 
         config_request = service_pb2.ModelConfigRequest(name=self.model,version="")
         model_config = grpc_stub.ModelConfig(config_request).config
-
+        
         if len(model_metadata.inputs) != 1:
             raise Exception("expecting 1 input, got {}".format(len(model_metadata.inputs)))
         if len(model_metadata.outputs) != 1:
@@ -114,7 +116,11 @@ class Client:
             raise Exception("expecting input to have {} dimensions, model '{}' input has {}".format(
                 expected_input_dims, model_metadata.name, len(input_metadata.shape)))
 
-        if not self.yolo:
+        # -----------------------------------------------------------------------------------------
+        self.tensorrt = True if 'tensorrt' in model_config.platform else False
+        # -----------------------------------------------------------------------------------------
+
+        if not self.tensorrt:
             if ((input_config.format != mc.ModelInput.FORMAT_NCHW) and
                 (input_config.format != mc.ModelInput.FORMAT_NHWC)):
                 raise Exception("unexpected input format " +
@@ -229,7 +235,11 @@ class Client:
         outputs.append(grpcclient.InferRequestedOutput(self.output_name))
 
         print("Creating buffer from image file...")
-        image_buffer = preprocess(image, [width, height])   # image_buffer is for inference
+        if not self.tensorrt:
+            image_buffer = preprocess(image, [width, height])   # image_buffer is for inference
+        else:
+            image_buffer = caffe_mode(image, [width, height])
+
         image_buffer = np.expand_dims(image_buffer, axis=0) if self.input_dims==4 else image_buffer
         inputs[0].set_data_from_numpy(image_buffer)    
 
@@ -247,34 +257,38 @@ class Client:
         print(f"Received result buffer of size {result.shape}")
         print(f"Naive buffer sum: {np.sum(result)}")
 
-        if self.yolo:
+        if self.tensorrt:
+            if self.yolo:
+                detected_objects = postprocess(result, image.shape[1], image.shape[0], [width, height], self.confidence, self.nms)
+                print(f"Detected objects: {len(detected_objects)}")
 
-            detected_objects = postprocess(result, image.shape[1], image.shape[0], [width, height], self.confidence, self.nms)
-            print(f"Detected objects: {len(detected_objects)}")
+                print("Rendering Bounding Box...")
+                parsed_results, image_draw = self.render_dets(image.copy(), detected_objects)
+                
+                print("Output...")
+                if output:
+                    cv2.imwrite(output, image_draw)
+                    print(f"Saved result to {output}")
 
-            print("Rendering Bounding Box...")
-            parsed_results, image_draw = self.render_dets(image.copy(), detected_objects)
-            
-            print("Output...")
-            if output:
-                cv2.imwrite(output, image_draw)
-                print(f"Saved result to {output}")
-            else:
-                pass
-                # cv2.imshow('image', image_draw)
-                # cv2.waitKey(0)
-                # cv2.destroyAllWindows()
-
-            return parsed_results, image_draw
-        # 如果不是 yolo 
-        else:
-            parsed_results = list()
-            index = np.argmax(result)
-            conf = result[index]
-            classes = self.label[index]
-            print_title('Result is : [{}] {}'.format(index, classes, conf))
-            parsed_results.append( [index, classes, conf] )
+                return parsed_results, image_draw
+            else:   
+                # if not yolo
+                result = np.squeeze(result) # 把維度清除乾淨
+                parsed_results = self.parse_cls_results(result)
+                return parsed_results, image
+        else:   
+            # onnx
+            parsed_results = self.parse_cls_results(result)
             return parsed_results, image
+
+    def parse_cls_results(self, result):
+        parsed_results = list()
+        index = np.argmax(result)
+        conf = result[index]
+        classes = self.label[index]
+        print_title('Result is : [{}] {}'.format(index, classes, conf))
+        parsed_results.append( [index, classes, conf] )
+        return parsed_results
 
     def video_infer(self, vid ,width , height, output, input_type='FP32'):
         print_title(output)

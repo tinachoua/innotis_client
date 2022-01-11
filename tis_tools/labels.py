@@ -12,6 +12,8 @@ def get_label(label_name):
         label_file += 'will3.txt'
     elif label_name.upper()=='IMAGENET':
         label_file += 'imagenet1000.txt'
+    elif label_name.upper()=='MAX':
+        label_file += 'max.txt'
     else:
         print('ERROR')
         sys.exit(1)
@@ -108,3 +110,7 @@ class WillLabels(Enum):
     mask = 0
     bad = 1
     abnormal = 2
+
+class MaxLabels(Enum):
+    mask = 0
+    non_mask = 1
