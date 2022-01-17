@@ -59,7 +59,8 @@ app.config['M_LIST'] = {
     'densenet_onnx':{ 'name':'densenet_onnx', 'width':224, 'height':224, 'dataset':'imagenet'},
     'mask_classifier_resnet_50':{ 'name':'mask_classifier_resnet_50', 'width':224, 'height':224, 'dataset':'max'},
     'yolov4':{ 'name':'yolov4', 'width':608, 'height':608, 'dataset':'coco'},        
-    'yolov4_will':{ 'name':'yolov4_will', 'width':608, 'height':608, 'dataset':'will'}
+    'yolov4_will':{ 'name':'yolov4_will', 'width':608, 'height':608, 'dataset':'will'},
+    'usb_detector_for_innodisk':{ 'name':'usb_detector_for_innodisk', 'width':608, 'height':608, 'dataset':'usb_innodisk'}
     }
 
 # 其他的 client 設定
@@ -186,7 +187,8 @@ def get_sel():
     app.config['MODEL'] = app.config['M_LIST'][request.get_json()]
     
     # model_name = app.config['MODEL']['name']
-    app.config['YOLO'] = 'yolo' in app.config['MODEL']['name']
+    app.config['YOLO'] = 'yolo' in app.config['MODEL']['name'] or 'usb_detector' in app.config['MODEL']['name']
+
     print_title('Selected Model ... {}'.format(app.config['MODEL']['name']))
     
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
@@ -216,7 +218,7 @@ def upload_file():
                                     nms=client_setup['nms'] ,
                                     get_info=client_setup['info'] ,
                                     client_timeout=client_setup['timeout']  )
-    print(app.config)
+    # print(app.config)
     # 取得上傳的檔案
     uploaded_files = request.files.getlist("file[]")
     

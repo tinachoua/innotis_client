@@ -14,6 +14,8 @@ def get_label(label_name):
         label_file += 'imagenet1000.txt'
     elif label_name.upper()=='MAX':
         label_file += 'max.txt'
+    elif label_name.upper()=='USB_INNODISK':
+        label_file += 'usb_innodisk.txt'
     else:
         print('ERROR')
         sys.exit(1)

@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import enum
+from itertools import count
+from turtle import Turtle
 import numpy as np
 import sys
 import cv2
@@ -13,7 +16,7 @@ import shlex
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import InferenceServerException
 
-from tis_tools.processing import preprocess, postprocess, caffe_mode
+from tis_tools.processing import preprocess, postprocess, caffe_mode, postprocess_itao_yolo
 from tis_tools.render import render_box, render_filled_box, get_text_size, render_text, RAND_COLORS
 from tis_tools.labels import get_label, COCOLabels, WillLabels
 from tis_tools.log import print_title
@@ -43,7 +46,9 @@ class Client:
         self.client_timeout = client_timeout
 
         self.tensorrt = False
-        self.yolo = 'yolo' in model_name
+        self.darknet_yolo = 'yolo' in model_name
+        self.itao_yolo = False
+        self.multi_output = False
         ##############################################
         # Create Triton Client
         try:
@@ -75,75 +80,101 @@ class Client:
 
         config_request = service_pb2.ModelConfigRequest(name=self.model,version="")
         model_config = grpc_stub.ModelConfig(config_request).config
-        
-        if len(model_metadata.inputs) != 1:
-            raise Exception("expecting 1 input, got {}".format(len(model_metadata.inputs)))
-        if len(model_metadata.outputs) != 1:
-            raise Exception("expecting 1 output, got {}".format(len(model_metadata.outputs)))
 
-        if len(model_config.input) != 1:
-            raise Exception(
-                "expecting 1 input in model configuration, got {}".format(len(model_config.input)))
+        if self.model=='usb_detector_for_innodisk':
+            
+            self.multi_output = self.itao_yolo = self.tensorrt = True
+            
+            input_metadata = model_metadata.inputs[0]
+            input_config = model_config.input[0]
 
-        input_metadata = model_metadata.inputs[0]
-        input_config = model_config.input[0]
-        output_metadata = model_metadata.outputs[0]
+            output_name = [ output.name for output in model_metadata.outputs ]
+            
+            # Model input must have 3 dims, either CHW or HWC (not counting
+            # the batch dimension), either CHW or HWC
+            input_batch_dim = (model_config.max_batch_size > 0)
+            expected_input_dims = 3 + (1 if input_batch_dim else 0)
+            if len(input_metadata.shape) != expected_input_dims:
+                raise Exception("expecting input to have {} dimensions, model '{}' input has {}".format(
+                    expected_input_dims, model_metadata.name, len(input_metadata.shape)))
 
-        if output_metadata.datatype != "FP32":
-            raise Exception("expecting output datatype to be FP32, model '" +
-                            model_metadata.name + "' output type is " +
-                            output_metadata.datatype)
-
-        # Output is expected to be a vector. But allow any number of
-        # dimensions as long as all but 1 is size 1 (e.g. { 10 }, { 1, 10
-        # }, { 10, 1, 1 } are all ok). Ignore the batch dimension if there
-        # is one.
-        output_batch_dim = (model_config.max_batch_size > 0)
-        non_one_cnt = 0
-        for dim in output_metadata.shape:
-            if output_batch_dim:
-                output_batch_dim = False
-            elif dim > 1:
-                non_one_cnt += 1
-                if non_one_cnt > 1:
-                    raise Exception("expecting model output to be a vector")
-
-        # Model input must have 3 dims, either CHW or HWC (not counting
-        # the batch dimension), either CHW or HWC
-        input_batch_dim = (model_config.max_batch_size > 0)
-        expected_input_dims = 3 + (1 if input_batch_dim else 0)
-        if len(input_metadata.shape) != expected_input_dims:
-            raise Exception("expecting input to have {} dimensions, model '{}' input has {}".format(
-                expected_input_dims, model_metadata.name, len(input_metadata.shape)))
-
-        # -----------------------------------------------------------------------------------------
-        self.tensorrt = True if 'tensorrt' in model_config.platform else False
-        # -----------------------------------------------------------------------------------------
-
-        if not self.tensorrt:
-            if ((input_config.format != mc.ModelInput.FORMAT_NCHW) and
-                (input_config.format != mc.ModelInput.FORMAT_NHWC)):
-                raise Exception("unexpected input format " +
-                                mc.ModelInput.Format.Name(input_config.format) +
-                                ", expecting " +
-                                mc.ModelInput.Format.Name(mc.ModelInput.FORMAT_NCHW) +
-                                " or " +
-                                mc.ModelInput.Format.Name(mc.ModelInput.FORMAT_NHWC))
-            if input_config.format == mc.ModelInput.FORMAT_NHWC:
-                h = input_metadata.shape[1 if input_batch_dim else 0]
-                w = input_metadata.shape[2 if input_batch_dim else 1]
-                c = input_metadata.shape[3 if input_batch_dim else 2]
-            else:
-                c = input_metadata.shape[1 if input_batch_dim else 0]
-                h = input_metadata.shape[2 if input_batch_dim else 1]
-                w = input_metadata.shape[3 if input_batch_dim else 2]
-        else:
+            
             c = input_metadata.shape[1]
             h = input_metadata.shape[2]
             w = input_metadata.shape[3]
 
-        return (input_metadata.name, output_metadata.name, expected_input_dims, (c, h, w),
-                input_config.format, input_metadata.datatype)
+            return (input_metadata.name, output_name, expected_input_dims, (c, h, w),
+                    input_config.format, input_metadata.datatype)
+
+        else:
+            if len(model_metadata.inputs) != 1:
+                raise Exception("expecting 1 input, got {}".format(len(model_metadata.inputs)))
+            if len(model_metadata.outputs) != 1:
+                raise Exception("expecting 1 output, got {}".format(len(model_metadata.outputs)))
+
+            if len(model_config.input) != 1:
+                raise Exception(
+                    "expecting 1 input in model configuration, got {}".format(len(model_config.input)))
+
+            input_metadata = model_metadata.inputs[0]
+            input_config = model_config.input[0]
+            output_metadata = model_metadata.outputs[0]
+
+            if output_metadata.datatype != "FP32":
+                raise Exception("expecting output datatype to be FP32, model '" +
+                                model_metadata.name + "' output type is " +
+                                output_metadata.datatype)
+
+            # Output is expected to be a vector. But allow any number of
+            # dimensions as long as all but 1 is size 1 (e.g. { 10 }, { 1, 10
+            # }, { 10, 1, 1 } are all ok). Ignore the batch dimension if there
+            # is one.
+            output_batch_dim = (model_config.max_batch_size > 0)
+            non_one_cnt = 0
+            for dim in output_metadata.shape:
+                if output_batch_dim:
+                    output_batch_dim = False
+                elif dim > 1:
+                    non_one_cnt += 1
+                    if non_one_cnt > 1:
+                        raise Exception("expecting model output to be a vector")
+
+            # Model input must have 3 dims, either CHW or HWC (not counting
+            # the batch dimension), either CHW or HWC
+            input_batch_dim = (model_config.max_batch_size > 0)
+            expected_input_dims = 3 + (1 if input_batch_dim else 0)
+            if len(input_metadata.shape) != expected_input_dims:
+                raise Exception("expecting input to have {} dimensions, model '{}' input has {}".format(
+                    expected_input_dims, model_metadata.name, len(input_metadata.shape)))
+
+            # -----------------------------------------------------------------------------------------
+            self.tensorrt = True if 'tensorrt' in model_config.platform else False
+            # -----------------------------------------------------------------------------------------
+
+            if not self.tensorrt:
+                if ((input_config.format != mc.ModelInput.FORMAT_NCHW) and
+                    (input_config.format != mc.ModelInput.FORMAT_NHWC)):
+                    raise Exception("unexpected input format " +
+                                    mc.ModelInput.Format.Name(input_config.format) +
+                                    ", expecting " +
+                                    mc.ModelInput.Format.Name(mc.ModelInput.FORMAT_NCHW) +
+                                    " or " +
+                                    mc.ModelInput.Format.Name(mc.ModelInput.FORMAT_NHWC))
+                if input_config.format == mc.ModelInput.FORMAT_NHWC:
+                    h = input_metadata.shape[1 if input_batch_dim else 0]
+                    w = input_metadata.shape[2 if input_batch_dim else 1]
+                    c = input_metadata.shape[3 if input_batch_dim else 2]
+                else:
+                    c = input_metadata.shape[1 if input_batch_dim else 0]
+                    h = input_metadata.shape[2 if input_batch_dim else 1]
+                    w = input_metadata.shape[3 if input_batch_dim else 2]
+            else:
+                c = input_metadata.shape[1]
+                h = input_metadata.shape[2]
+                w = input_metadata.shape[3]
+
+            return (input_metadata.name, output_metadata.name, expected_input_dims, (c, h, w),
+                    input_config.format, input_metadata.datatype)
 
     def check_triton_status(self):
         '''
@@ -232,12 +263,17 @@ class Client:
         inputs, outputs = list(), list()
         
         inputs.append(grpcclient.InferInput(self.input_name, self.inputs_shape, input_type))
-        outputs.append(grpcclient.InferRequestedOutput(self.output_name))
+
+        if self.multi_output:
+            [ outputs.append( grpcclient.InferRequestedOutput(name) ) for name in self.output_name ]
+        else:
+            outputs.append(grpcclient.InferRequestedOutput(self.output_name))
 
         print("Creating buffer from image file...")
         if not self.tensorrt:
             image_buffer = preprocess(image, [width, height])   # image_buffer is for inference
         else:
+            print('Pre-processing with Caffe mode')
             image_buffer = caffe_mode(image, [width, height])
 
         image_buffer = np.expand_dims(image_buffer, axis=0) if self.input_dims==4 else image_buffer
@@ -248,20 +284,38 @@ class Client:
                                     inputs=inputs,
                                     outputs=outputs)
         if self.get_info: 
-            self.get_infer_stats()
+            pass
+        self.get_infer_stats()
         
         print("Inference Done !!!")
 
+        
         print("Parsing Results...")
-        result = results.as_numpy(self.output_name)
-        print(f"Received result buffer of size {result.shape}")
-        print(f"Naive buffer sum: {np.sum(result)}")
+        if self.multi_output:
+            result = [ results.as_numpy(name)[0] for name in self.output_name ]
+        else:
+            result = results.as_numpy(self.output_name)
+            print(f"Received result buffer of size {result.shape}")
+            print(f"Naive buffer sum: {np.sum(result)}")
 
+        # Postprocess --------------------------------------------------------------------------------------------------------------------
+        
         if self.tensorrt:
-            if self.yolo:
+            if self.darknet_yolo:
                 detected_objects = postprocess(result, image.shape[1], image.shape[0], [width, height], self.confidence, self.nms)
                 print(f"Detected objects: {len(detected_objects)}")
 
+                print("Rendering Bounding Box...")
+                parsed_results, image_draw = self.render_dets(image.copy(), detected_objects)
+                
+                print("Output...")
+                if output:
+                    cv2.imwrite(output, image_draw)
+                    print(f"Saved result to {output}")
+
+                return parsed_results, image_draw
+            elif self.itao_yolo:
+                detected_objects = postprocess_itao_yolo(result, image.shape[1], image.shape[0], [width, height], self.confidence, self.nms)
                 print("Rendering Bounding Box...")
                 parsed_results, image_draw = self.render_dets(image.copy(), detected_objects)
                 
@@ -335,7 +389,7 @@ class Client:
 
             result = results.as_numpy(self.output_name)
 
-            if self.yolo:
+            if self.darknet_yolo:
 
                 detected_objects = postprocess(result, frame.shape[1], frame.shape[0], [width, height], self.confidence, self.nms)
                 print(f"Frame {counter}: {len(detected_objects)} objects")
