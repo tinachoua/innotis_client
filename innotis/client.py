@@ -78,7 +78,7 @@ class Client:
 
     # -----------------------------------------------------------------------------------------------------------------------------
     ''' 取得標籤物件 '''
-    def get_label(label_name):
+    def get_label(self, label_name):
         
         label_file_root = 'labels'
 
