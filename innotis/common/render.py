@@ -1,15 +1,28 @@
 import numpy as np
-
 import cv2
-
 from math import sqrt
 
 _LINE_THICKNESS_SCALING = 500.0
-
 np.random.seed(0)
 RAND_COLORS = np.random.randint(50, 255, (64, 3), "int")  # used for class visu
 RAND_COLORS[0] = [220, 220, 220]
 
+# -----------------------------------------------------------------------------------
+def render_dets(image, label, detected_objects):
+    results = dict()    # init
+
+    for idx,box in enumerate(detected_objects):
+
+        results[idx]= [label[box.classID],  box.confidence]                                                                     # 類別與邊界框
+        image = render_box(image, box.box(), color=tuple(RAND_COLORS[box.classID % 64].tolist()))                               # 渲染（繪製）邊界框
+        size = get_text_size(image, f"{label[box.classID]}: {box.confidence:.2f}", normalised_scaling=0.6)                      # 取得標籤大小
+        image = render_filled_box(image, (box.x1 - 3, box.y1 - 3, box.x1 + size[0], box.y1 + size[1]), color=(220, 220, 220))   # 繪製標籤的背景
+        image = render_text(image, f"{label[box.classID]}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5) # 繪製標籤
+    
+    if not results: results[0] = ['None', 0]    # 如果沒有輸出則回傳 None 代表沒有辨識結果
+    return results, image
+
+# -----------------------------------------------------------------------------------
 def render_box(img, box, color=(200, 200, 200)):
     """
     Render a box. Calculates scaling and thickness automatically.
@@ -35,6 +48,7 @@ def render_box(img, box, color=(200, 200, 200)):
     )
     return img
 
+# -----------------------------------------------------------------------------------
 def render_filled_box(img, box, color=(200, 200, 200)):
     """
     Render a box. Calculates scaling and thickness automatically.
@@ -56,7 +70,7 @@ def render_filled_box(img, box, color=(200, 200, 200)):
 _TEXT_THICKNESS_SCALING = 700.0
 _TEXT_SCALING = 520.0
 
-
+# -----------------------------------------------------------------------------------
 def get_text_size(img, text, normalised_scaling=1.0):
     """
     Get calculated text size (as box width and height)
@@ -76,7 +90,7 @@ def get_text_size(img, text, normalised_scaling=1.0):
     scaling = img.shape[0] / _TEXT_SCALING * normalised_scaling
     return cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scaling, thickness)[0]
 
-
+# -----------------------------------------------------------------------------------
 def render_text(img, text, pos, color=(200, 200, 200), normalised_scaling=1.0):
     """
     Render a text into the image. Calculates scaling and thickness automatically.

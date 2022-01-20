@@ -114,15 +114,22 @@
 </style>
 
 <head>
-    <!-- <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}"></link> -->
-    <!-- <link rel="stylesheet" type="text/css" href="../static/css/style.css"></link> -->
+    
+    <!-- 抓到 JQuery 的函式庫，從網路上抓 -->
     <script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+    <!-- 如果要在 HTML 當中寫 JAVASCRIPT 就需要用 script 包住 -->
     <script type="text/javascript">
 
+        // 設定根目錄
         var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
 
+        // 綁定事件，這個 ajax 的語法超醜，但沒辦法
         $(document).ready(function(){
             
+            // 選擇模型的事件
+            // #sel 代表 HTML 上的元件 ID 名為 sel，可以透過 id="sel" 去搜尋
+            // 當點擊 #sel 會發送一個 POST 到 app.py 的 _sel ，從 Flask 的修飾器去找
             $("#sel").change(function(){
                 $.ajax({  
                     type: 'POST',
@@ -132,6 +139,7 @@
                 });
             });
             
+            // 選擇模式的事件，原理與上述相同
             $("#mode-sel").change(function(){
                 $.ajax({
                     type: 'POST',
@@ -141,9 +149,9 @@
                 });
             });
 
+            // loader 是當進行 Inference 的時候 會改成 尋轉用的 GIF
             $("#loader").css("display","none");
             
-            // document.getElementById("loader").style.display = "noen";
             $("#bt_upload").click(function(){
                 $("#loader").css("display","block");
                 $("#bt_upload").text("LOADING");

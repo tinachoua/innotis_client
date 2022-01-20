@@ -1,5 +1,7 @@
+# based on miniconda3
 FROM continuumio/miniconda3
 
+# install dependent packages
 RUN apt-get update
 RUN apt-get install libgl1-mesa-glx -y
 RUN apt-get install git -y
