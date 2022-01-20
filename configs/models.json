@@ -71,6 +71,18 @@
             "timeout": false,
             "preprocess": "caffe"
         }
-
-    }
+    },
+    "usb_detector_for_innodisk":{ 
+        "name":"usb_detector_for_innodisk", 
+        "task": "objected_detection",
+        "TAO": true,
+        "width":608, 
+        "height":608, 
+        "label":"usb_innodisk.txt",
+        "option":{
+            "conf": 0.9,
+            "info": true,
+            "timeout": false
+        }
+    } 
 }
