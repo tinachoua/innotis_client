@@ -25,7 +25,8 @@ def gen_uuid(img_path):
     random.seed( SEED )
     
     name, ext = img_path.rsplit('.', 1)
-    fakeid='?uuid='
+    # fakeid='?uuid='
+    fakeid='_'
        
     for i in range(3):
         fakeid += '{}{}'.format(random.randint(0,9), string.ascii_letters[random.randint(0,26)])  # 取得 隨機 數值 與 字母
@@ -47,13 +48,15 @@ def parse_results(res, isYOLO):
         index=0
         det_nums = 0 if res[0][0] is 'None' else len(res)   # 如果第一筆資料是 None 代表沒有辨識到結果
 
-        results ='Detected Objects: {} \n'.format(det_nums)
+        results ='\nDetected Objects: {} \n'.format(det_nums)
         for classes, confidence in res.values():
             index+=1
-            results = results + '[{}] {} , {:.3f}\n'.format(index, classes, confidence)
+            results = results + '[{}] {} ({:.3f})\n'.format(index, classes, confidence)
+            # results = results + '[{}] {} , {:.3f}\n'.format(index, classes, confidence)
     else:
         index, classes, confidence = res[0]
-        results = '[{}] {} , {:.3f}\n'.format(index, classes, confidence)
+        # results = '[{}] {} , {:.3f}\n'.format(index, classes, confidence)
+        results = '[{}] {} ({:.3f})\n'.format(index, classes, confidence)
 
     return results
 

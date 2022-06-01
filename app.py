@@ -3,7 +3,7 @@ from asyncio.log import logger
 from distutils.log import debug
 import shutil
 from unicodedata import name
-from flask import Flask, config, request, redirect, url_for, render_template, Response
+from flask import Flask, config, request, redirect, url_for, render_template, Response, jsonify
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from flask.logging import default_handler
@@ -18,6 +18,7 @@ from innotis.common.json_parser import JsonParser
 from innotis.common.custom_logger import conf_for_flask
 from innotis.web_utils import cv2base64, clear_images, gen_uuid, allowed_file, parse_results
 from logging.config import dictConfig
+from flask_cors import CORS
 
 # -----------------------------------------------------------------------------------------------------------------------------
 # initial logger
@@ -25,6 +26,7 @@ dictConfig(conf_for_flask(write_mdoe='w'))
 
 # initial Flask application
 app = Flask(__name__)
+CORS(app)
 
 # -----------------------------------------------------------------------------------------------------------------------------
 ''' 串流模式，只能寫在這裡，後續可以考慮 WebRTC 去整 '''
@@ -73,7 +75,7 @@ def feed_frame():
 '''取得選擇的模型'''
 @app.route('/_sel', methods=['GET', 'POST'])
 def get_sel():
-    
+    print(request.get_json())
     app.config['MODEL'] = app.config['MODEL_INFO'][request.get_json()]  # 取得特定的模型資訓
 
     app.config['CLIENT_SETUP'] = app.config['MODEL_INFO'][request.get_json()]["option"] # 該模型的相關 Infer 參數
@@ -92,6 +94,43 @@ def get_mode():
     app.logger.info('Selected Mode ... {}'.format(app.config['MODE']))
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
+# ----------------------
+@app.route('/models_tree', methods=['GET'])
+def get_models_tree():
+    return jsonify(model_tree)
+
+# ----------------------
+@app.route('/new_upload', methods=['GET', 'POST'])
+def new_upload_file():
+    app.config['MODEL'] = app.config['MODEL_INFO'][request.form.get('model')]  # 取得特定的模型資訓
+    # app.config['CLIENT_SETUP'] = app.config['MODEL_INFO'][request.get_json()]["option"] # 該模型的相關 Infer 參數
+    app.config['YOLO'] = 'yolo' in app.config['MODEL']['name'] or 'usb_detector' in app.config['MODEL']['name'] # 確認是否是 YOLO
+    
+    model = app.config['MODEL']
+    mode = app.config['MODE']
+    client = Client( url='172.23.70.51:8001', model_info=model )
+
+    data = []
+    for fname in request.files:
+        f = request.files.get(fname)
+        filename = secure_filename(fname)
+
+        img = cv2.imdecode(np.fromstring( f.read(), np.uint8), cv2.IMREAD_COLOR) 
+
+        out_name = gen_uuid(filename)       # 取得獨特的UUID，避免 HTML 讀取舊的檔案
+
+        out_pth = os.path.join(app.config['UPLOAD_FOLDER'], out_name)       # 取得除群位置
+
+        # 進行 Inference
+        results, image_draw =  client.image_infer(img, model['width'], model['height'], out_pth)
+
+        info = parse_results(res=results, isYOLO=app.config['YOLO'])  # 解析結果
+        
+        # 將資料記錄下來        
+        data.append(  (out_name if app.config['YOLO'] else filename, info, cv2base64(image_draw)) )
+
+    return jsonify(data)
+
 # -----------------------------------------------------------------------------------------------------------------------------
 '''註冊 upload 位置'''
 @app.route('/upload', methods=['GET', 'POST'])
@@ -99,8 +138,9 @@ def upload_file():
     
     # 取得 IP 後建立 Client 端物件
     model = app.config['MODEL']
+    print(model)
     mode = app.config['MODE']
-    client = Client( url=request.form.get('ip'), model_info=model )
+    client = Client( url='172.23.70.51:8001', model_info=model ) #request.form.get('ip')
 
     app.logger.info('Check mode ... {}'.format(mode))
     uploaded_files = request.files.getlist("file[]")    # 取得上傳的檔案
@@ -193,12 +233,14 @@ if __name__ == '__main__':
     ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'mp4']) # 設定 副檔名 規範
     MAX_FILE_SIZE = 16
     JSON_FILE_PATH = "./configs/models.json"
+    MODEL_TREE_PATH = "./configs/models_tree.json"
 
     # ----------------------------------------------------------------------------------------
     # set up variable of flask application
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER     # 定義 APP 的全域變數
     app.config['ALLOWED_EXTENSIONS'] = ALLOWED_EXTENSIONS
     model_info = JsonParser(JSON_FILE_PATH).get_data()  # 解析 模型資訊 (JSON)
+    model_tree = JsonParser(MODEL_TREE_PATH).get_data()
     app.config['MODEL_INFO'] = model_info
     app.config.update(  CLIENT = [],                # 當有多個變數的時候就需要使用 update       
                         MODEL = None,
@@ -219,4 +261,4 @@ if __name__ == '__main__':
     if len(sys.argv)>1 and sys.argv[1].lower()=="debug":
         app.run(host='0.0.0.0', port='5000', threaded=True, debug=True)
     else:
-        app.run(host='0.0.0.0', port='5000', threaded=True)
+        app.run(host='0.0.0.0', port='5000', threaded=True, debug=True)

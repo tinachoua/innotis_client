@@ -1,4 +1,4 @@
-name: innotis
+name: innotisv02
 channels:
   - defaults
 dependencies:
